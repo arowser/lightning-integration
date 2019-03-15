@@ -379,3 +379,25 @@ def test_reconnect_across_channel_open(bitcoind, node_factory, impls):
     wait_for(lambda: node1.check_channel(node2), timeout=120)
     wait_for(lambda: node2.check_channel(node1), timeout=120)
     sync_blockheight(bitcoind, [node1, node2])
+
+
+@pytest.mark.parametrize("impls", product(impls, repeat=2), ids=idfn)
+def test_lnd_clightning_dust_open_channel(bitcoind, node_factory, impls):
+    node1 = node_factory.get_node(implementation=impls[0])
+    node2 = node_factory.get_node(implementation=impls[1])
+
+    node1.connect('localhost', node2.daemon.port, node2.id())
+
+    wait_for(lambda: node1.peers(), interval=1)
+    wait_for(lambda: node2.peers(), interval=1)
+
+    node1.addfunds(bitcoind, 2 * 10**7)
+
+    node1.openchannel(node2.id(), 'localhost', node2.daemon.port, 57200)
+    time.sleep(1)
+    bitcoind.rpc.generate(2)
+
+    assert confirm_channel(bitcoind, node1, node2)
+
+    assert(node1.check_channel(node2))
+    assert(node2.check_channel(node1))
